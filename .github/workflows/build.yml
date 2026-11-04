@@ -1,0 +1,52 @@
+name: Build
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+
+jobs:
+  macos:
+    runs-on: macos-15          # Apple Silicon (arm64)
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - run: chmod +x build_macos.sh && PYTHON=python ./build_macos.sh
+      - uses: actions/upload-artifact@v4
+        with:
+          name: LanScanner-macOS-arm64
+          path: dist/LanScanner-macOS-arm64.dmg
+
+  windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - run: |
+          pip install pyinstaller
+          pyinstaller --noconfirm --onefile --windowed --name LanScanner lan_scanner.py
+      - uses: actions/upload-artifact@v4
+        with:
+          name: LanScanner-Windows
+          path: dist/LanScanner.exe
+
+  release:
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: [macos, windows]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: out
+          merge-multiple: true
+      - uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            out/LanScanner-macOS-arm64.dmg
+            out/LanScanner.exe
